@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: ai-trip-planner-backend
+    env: python
+    plan: free
+    pythonVersion: 3.11
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn Backend_main_new:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GPLACES_API_KEY
+        sync: false
+      - key: FOURSQUARE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
+      - key: EXCHANGE_RATE_API_KEY
+        sync: false
