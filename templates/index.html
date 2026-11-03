@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Trip Planner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background:
+                linear-gradient(rgba(15, 23, 42, .45), rgba(15, 23, 42, .45)),
+                url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e");
+            background-size: cover;
+            background-position: center;
+        }
+
+        .wrapper {
+            max-width: 1200px;
+            margin: auto;
+            padding: 60px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+        .globe-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4, #ec4899);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.5);
+}
+
+.globe {
+    font-size: 32px;
+    color: white;
+    animation: spin 18s linear infinite;
+}
+
+        .globe {
+            font-size: 36px;
+            animation: spin 18s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .card-glass {
+            background: rgba(255, 255, 255, .92);
+            backdrop-filter: blur(14px);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            transition: .35s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .input-group:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 40px rgba(79, 70, 229, .35);
+        }
+
+        .form-control,
+        .form-select {
+            height: 56px;
+        }
+
+        .btn-main {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4, #ec4899);
+            border: none;
+            height: 56px;
+            border-radius: 16px;
+            color: white;
+        }
+
+        .btn-reset {
+            border: 2px solid #ec4899;
+            height: 56px;
+            border-radius: 16px;
+            background: white;
+            color: #ec4899;
+        }
+
+        .output-box {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* SWITCH */
+        .switch {
+            width: 52px;
+            height: 26px;
+            background: #cbd5f5;
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .switch::after {
+            content: "";
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            left: 4px;
+            transition: .3s;
+        }
+
+        .switch.active {
+            background: #6366f1;
+        }
+
+        .switch.active::after {
+            left: 28px;
+        }
+
+        /* AI LOADER */
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .85);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            visibility: hidden;
+            transition: .4s;
+        }
+
+        .loader-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loader-overlay p {
+            color: white;
+            margin-top: 12px;
+        }
+
+        /* TRANSLATOR LOADER */
+        #translateBox,
+        #insuranceBox {
+            position: relative;
+        }
+
+        .center-loader {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            border-radius: 24px;
+        }
+
+        /* RENDERED AI PLAN (markdown output) */
+        .plan-rendered {
+            background: rgba(0, 0, 0, 0.03);
+            padding: 24px;
+            border-radius: 12px;
+            line-height: 1.65;
+            color: #1f2937;
+            overflow-x: auto;
+        }
+
+        .plan-rendered h1,
+        .plan-rendered h2,
+        .plan-rendered h3,
+        .plan-rendered h4 {
+            color: #4f46e5;
+            font-weight: 600;
+            margin-top: 1.4em;
+            margin-bottom: 0.6em;
+        }
+
+        .plan-rendered h1:first-child,
+        .plan-rendered h2:first-child,
+        .plan-rendered h3:first-child {
+            margin-top: 0;
+        }
+
+        .plan-rendered h1 { font-size: 1.5rem; border-bottom: 2px solid rgba(79,70,229,.2); padding-bottom: 6px; }
+        .plan-rendered h2 { font-size: 1.3rem; border-bottom: 1px solid rgba(79,70,229,.15); padding-bottom: 4px; }
+        .plan-rendered h3 { font-size: 1.12rem; }
+        .plan-rendered h4 { font-size: 1rem; }
+
+        .plan-rendered p {
+            margin: 0.5em 0 1em;
+        }
+
+        .plan-rendered ul,
+        .plan-rendered ol {
+            margin: 0.4em 0 1em;
+            padding-left: 1.4em;
+        }
+
+        .plan-rendered li {
+            margin-bottom: 0.35em;
+        }
+
+        .plan-rendered li > ul,
+        .plan-rendered li > ol {
+            margin-top: 0.35em;
+        }
+
+        .plan-rendered strong {
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .plan-rendered a {
+            color: #06b6d4;
+            text-decoration: underline;
+        }
+
+        .plan-rendered hr {
+            border: none;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            margin: 1.5em 0;
+        }
+
+        .plan-rendered blockquote {
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            border-left: 4px solid #4f46e5;
+            background: rgba(79,70,229,0.06);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .plan-rendered code {
+            background: rgba(0,0,0,0.07);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .plan-rendered pre {
+            background: rgba(0,0,0,0.06);
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .plan-rendered pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .plan-rendered table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0 1.5em;
+            font-size: 0.95rem;
+        }
+
+        .plan-rendered th,
+        .plan-rendered td {
+            border: 1px solid rgba(0,0,0,0.12);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .plan-rendered thead th {
+            background: rgba(79,70,229,0.1);
+            color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .plan-rendered tbody tr:nth-child(even) {
+            background: rgba(0,0,0,0.02);
+        }
+
+        .plan-render-fallback {
+            white-space: pre-wrap;
+            background: rgba(0,0,0,0.03);
+            padding: 15px;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <!-- AI MAIN LOADER -->
+    <div id="aiLoader" class="loader-overlay">
+        <dotlottie-wc src="https://lottie.host/447f38ce-e183-45b9-827c-5d53de8c24ba/jlLFAGVU5S.lottie"
+            style="width:300px;height:320px" autoplay loop></dotlottie-wc>
+        <p>Planning your trip…</p>
+    </div>
+
+    <div class="wrapper">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="d-flex justify-content-center align-items-center gap-2">
+                <div class="globe-wrapper">
+                <i class="fa-solid fa-globe globe"></i>
+                </div>
+                <h1>AI Trip Planner</h1>
+            </div>
+            <p>Smart planning. Calm experience.</p>
+        </div>
+
+        <!-- TRIP FORM -->
+        <div class="card-glass">
+            <form method="POST" action="{{ url_for('index') }}" onsubmit="showAiLoader()">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-location-crosshairs"></i></span>
+                            <input name="departure_city" class="form-control" placeholder="From city" 
+                                   value="{% if plans %}{{ trip_details.departure_city or '' }}{% endif %}" required>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
+                            <input name="destination_city" class="form-control" placeholder="Destination city" 
+                                   value="{% if plans %}{{ trip_details.destination_city or '' }}{% endif %}" required>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-calendar-day"></i></span>
+                            <input type="date" name="departure_date" class="form-control" 
+                                   value="{% if plans %}{{ trip_details.departure_date or '' }}{% endif %}" required>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-calendar-check"></i></span>
+                            <input type="date" name="return_date" class="form-control" 
+                                   value="{% if plans %}{{ trip_details.return_date or '' }}{% endif %}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-main flex-fill">Generate Trip Plan</button>
+                    {% if plans %}
+                    <a href="{{ url_for('clear') }}" class="btn btn-reset flex-fill">Clear & Start Over</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- AI OUTPUT -->
+        {% if plans %}
+        <div class="card-glass">
+            <h4>📝 AI-Generated Trip Plan</h4>
+            {% for title, plan in plans %}
+            <div style="margin-bottom: 20px;">
+                <h5>{{ title }}</h5>
+                <textarea class="raw-plan-text" style="display:none;">{{ plan }}</textarea>
+                <div class="plan-rendered"></div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- REFINEMENT SECTION -->
+        <div class="card-glass">
+            <h5>✨ Refine Your Plan (Optional)</h5>
+            <form method="POST" action="{{ url_for('refine') }}">
+                <div style="margin-bottom: 20px;">
+                    {% for label, suggestion in suggestion_map.items() %}
+                    <div class="form-check" style="margin-bottom: 10px;">
+                        <input class="form-check-input" type="radio"
+                            name="refine_option"
+                            id="refine_{{ loop.index }}"
+                            value="{{ suggestion }}">
+                        <label class="form-check-label" for="refine_{{ loop.index }}">
+                            {{ label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label class="form-label">✍️ Custom Instructions (Optional)</label>
+                    <textarea
+                        name="custom_refine"
+                        class="form-control"
+                        rows="3"
+                        placeholder="E.g. Remove temples, add nightlife, prefer luxury hotels, avoid long travel days..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-main w-100">
+                    Apply Refinement
+                </button>
+            </form>
+        </div>
+
+        <!-- METRICS -->
+        <div class="card-glass">
+            <h5>📊 Plan Quality Metrics</h5>
+
+            {% if agent_status %}
+            {% set agent_labels = {"weather_agent": "🌤️ Weather", "places_agent": "📍 Places", "budget_agent": "💰 Budget", "writer_agent": "✍️ Writer"} %}
+            <div style="margin-bottom: 18px;">
+                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.6); margin-bottom: 8px;">
+                    Researched by
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% for entry in agent_status %}
+                        {% set status = entry.get("status", "ok") %}
+                        {% if status == "ok" %}
+                            {% set pill_bg = "rgba(34, 197, 94, 0.15)" %}
+                            {% set pill_fg = "#22c55e" %}
+                            {% set icon = "✓" %}
+                        {% elif status == "degraded" %}
+                            {% set pill_bg = "rgba(245, 158, 11, 0.15)" %}
+                            {% set pill_fg = "#f59e0b" %}
+                            {% set icon = "⚠" %}
+                        {% else %}
+                            {% set pill_bg = "rgba(239, 68, 68, 0.15)" %}
+                            {% set pill_fg = "#ef4444" %}
+                            {% set icon = "✕" %}
+                        {% endif %}
+                        <span
+                            title="{% if status == 'ok' %}Completed normally{% else %}{{ entry.get('detail', 'This agent hit an issue and used a fallback.') }}{% endif %}"
+                            style="display:inline-flex; align-items:center; gap:5px; padding: 5px 12px; border-radius: 999px; background: {{ pill_bg }}; color: {{ pill_fg }}; font-size: 13px; font-weight: 600;">
+                            {{ agent_labels.get(entry.get("agent"), entry.get("agent")) }}
+                            <span>{{ icon }}</span>
+                        </span>
+                    {% endfor %}
+                </div>
+                {% if agent_status|selectattr("status", "ne", "ok")|list %}
+                <div style="font-size: 12px; color: rgba(245, 158, 11, 0.9); margin-top: 6px;">
+                    ⚠ One or more specialists hit an issue and fell back to general knowledge for that section — the plan below still covers everything, just with less specific detail in that area.
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Overall Score Banner -->
+            <div style="padding: 20px; background: linear-gradient(135deg, #4f46e5, #06b6d4, #ec4899); border-radius: 12px; color: white; margin-bottom: 20px; text-align: center;">
+                <strong style="font-size: 18px;">Overall Quality Score</strong>
+                <p style="font-size: 32px; margin: 10px 0 0 0;">{{ "%.2f"|format(overall_score) }} / 1.00</p>
+            </div>
+            
+            <!-- Primary Metrics (2x2 Grid) -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div style="padding: 15px; background: rgba(79, 70, 229, 0.1); border-radius: 12px;">
+                        <strong style="color: #4f46e5;">Relevance</strong>
+                        <p style="font-size: 24px; margin: 8px 0; color: #4f46e5;">{{ "%.2f"|format(relevance) }}</p>
+                        <small style="color: #666;">Keywords matched to plan</small>
+                        <div class="progress mt-2">
+                            <div class="progress-bar" style="width: {{ relevance * 100 }}%; background: linear-gradient(90deg, #4f46e5, #06b6d4);"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div style="padding: 15px; background: rgba(6, 182, 212, 0.1); border-radius: 12px;">
+                        <strong style="color: #06b6d4;">Accuracy</strong>
+                        <p style="font-size: 24px; margin: 8px 0; color: #06b6d4;">{{ "%.2f"|format(accuracy) }}</p>
+                        <small style="color: #666;">Field completeness check</small>
+                        <div class="progress mt-2">
+                            <div class="progress-bar" style="width: {{ accuracy * 100 }}%; background: linear-gradient(90deg, #06b6d4, #ec4899);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detailed Metrics (3x2 Grid) -->
+            <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px;">
+                <strong style="display: block; margin-bottom: 12px; color: #333;">Detailed Breakdown</strong>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <div style="padding: 12px; background: rgba(34, 197, 94, 0.08); border-radius: 8px; text-align: center;">
+                            <small style="color: #666;">Location Accuracy</small>
+                            <p style="font-size: 20px; margin: 5px 0; color: #22c55e;">{{ "%.2f"|format(location_accuracy) }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="padding: 12px; background: rgba(59, 130, 246, 0.08); border-radius: 8px; text-align: center;">
+                            <small style="color: #666;">Date Accuracy</small>
+                            <p style="font-size: 20px; margin: 5px 0; color: #3b82f6;">{{ "%.2f"|format(date_accuracy) }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="padding: 12px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; text-align: center;">
+                            <small style="color: #666;">Completeness</small>
+                            <p style="font-size: 20px; margin: 5px 0; color: #a855f7;">{{ "%.2f"|format(completeness) }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="padding: 12px; background: rgba(251, 146, 60, 0.08); border-radius: 8px; text-align: center;">
+                            <small style="color: #666;">Budget Realism</small>
+                            <p style="font-size: 20px; margin: 5px 0; color: #fb923c;">{{ "%.2f"|format(budget_realism) }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="padding: 12px; background: rgba(236, 72, 153, 0.08); border-radius: 8px; text-align: center;">
+                            <small style="color: #666;">Structure Quality</small>
+                            <p style="font-size: 20px; margin: 5px 0; color: #ec4899;">{{ "%.2f"|format(structure_quality) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DOWNLOAD -->
+        <div class="card-glass">
+            <form action="{{ url_for('download') }}" method="POST">
+                {% for title, plan in plans %}
+                    <textarea name="plan_title" style="display:none;">{{ title }}</textarea>
+                    <textarea name="plan_text" style="display:none;">{{ plan }}</textarea>
+                {% endfor %}
+                <input type="hidden" name="departure_city" value="{{ trip_details.departure_city }}">
+                <input type="hidden" name="destination_city" value="{{ trip_details.destination_city }}">
+                <input type="hidden" name="departure_date" value="{{ trip_details.departure_date }}">
+                <input type="hidden" name="return_date" value="{{ trip_details.return_date }}">
+                <input type="hidden" name="relevance" value="{{ relevance }}">
+                <input type="hidden" name="accuracy" value="{{ accuracy }}">
+                <input type="hidden" name="location_accuracy" value="{{ location_accuracy }}">
+                <input type="hidden" name="date_accuracy" value="{{ date_accuracy }}">
+                <input type="hidden" name="completeness" value="{{ completeness }}">
+                <input type="hidden" name="budget_realism" value="{{ budget_realism }}">
+                <input type="hidden" name="structure_quality" value="{{ structure_quality }}">
+                <input type="hidden" name="overall_score" value="{{ overall_score }}">
+                <button class="btn btn-main w-100" style="background: linear-gradient(135deg, #06b6d4, #ec4899);">
+                    📥 Download Trip Plan (DOCX)
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- TRANSLATOR -->
+        <div class="card-glass">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>🌐 Translator</h5>
+                <div class="switch {{ 'active' if ui_translate }}"
+                    onclick="toggleSection('translateBox','ui_translate',this)"></div>
+            </div>
+
+            <div id="translateBox" style="display:{{ 'block' if ui_translate else 'none' }}">
+                <div id="translateLoader" class="center-loader">
+                    <dotlottie-wc src="https://lottie.host/1467f748-c0b3-41e5-8955-1edf3e35b393/srHUP663dl.lottie"
+                        style="width:150px;height:150px" autoplay loop></dotlottie-wc>
+                    <p>Translating…</p>
+                </div>
+
+                <form id="translatorForm">
+                    <textarea id="translateInput" name="text" class="form-control mb-2" placeholder="Text to translate" required></textarea>
+                    <select id="languageSelect" name="language" class="form-select mb-2">
+                        {% for lang, code in languages.items() %}
+                        <option value="{{ code }}">{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-main w-100" onclick="translateText()">Translate</button>
+                </form>
+                
+                <div id="translationResult" style="display: none; margin-top: 15px;">
+                    <h6>Translated Output</h6>
+                    <div class="output-box" style="background: rgba(0,0,0,0.03); padding: 15px; border-radius: 12px;">
+                        <pre id="translatedText" style="white-space: pre-wrap; margin: 0;"></pre>
+                    </div>
+                    <audio id="translatedAudio" controls class="w-100 mt-2" style="display: none;"></audio>
+                </div>
+            </div>
+        </div>
+
+        <!-- INSURANCE -->
+        <div class="card-glass">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>🛡️ Insurance</h5>
+                <div class="switch {{ 'active' if ui_insurance }}"
+                    onclick="toggleSection('insuranceBox','ui_insurance',this)"></div>
+            </div>
+
+            <div id="insuranceBox" style="display:{{ 'block' if ui_insurance else 'none' }}">
+                <form id="insuranceForm">
+                    <input type="number" name="age" class="form-control mb-2" placeholder="Traveller age" required>
+                    <select name="coverage_type" class="form-select mb-2">
+                        <option value="standard">Standard</option>
+                        <option value="premium">Premium</option>
+                    </select>
+                    <button type="submit" class="btn btn-main w-100">Get Insurance Quotes</button>
+                </form>
+
+                <div id="insuranceResults" class="mt-3"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Markdown rendering for AI plan output -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
+
+    <!-- JS -->
+    <script>
+        function renderPlanMarkdown() {
+            document.querySelectorAll(".raw-plan-text").forEach(function (sourceEl) {
+                var target = sourceEl.nextElementSibling;
+                var rawText = sourceEl.value || "";
+                try {
+                    var html = marked.parse(rawText, { gfm: true, breaks: true });
+                    var clean = DOMPurify.sanitize(html);
+                    target.innerHTML = clean;
+                } catch (err) {
+                    // Fall back to plain preformatted text if rendering fails for any reason
+                    target.classList.remove("plan-rendered");
+                    target.classList.add("plan-render-fallback");
+                    target.textContent = rawText;
+                }
+            });
+        }
+
+        renderPlanMarkdown();
+
+        function toggleSection(id, name, el) {
+            el.classList.toggle("active");
+            document.getElementById(id).style.display =
+                el.classList.contains("active") ? "block" : "none";
+        }
+
+        function showAiLoader() {
+            document.getElementById("aiLoader").classList.add("active");
+        }
+
+        function translateText() {
+            const text = document.getElementById("translateInput").value;
+            const language = document.getElementById("languageSelect").value;
+
+            if (!text.trim()) return alert("Enter text to translate");
+
+            // Show loader
+            document.getElementById("translateLoader").style.display = "flex";
+            const translationDiv = document.getElementById("translationResult");
+            const translatedTextEl = document.getElementById("translatedText");
+            const audioEl = document.getElementById("translatedAudio");
+
+            translatedTextEl.textContent = "Translating...";
+            audioEl.src = "";
+            audioEl.style.display = "none";
+
+            fetch("/translate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text, language })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("translateLoader").style.display = "none";
+                
+                if (data.error) {
+                    translatedTextEl.textContent = `Error: ${data.error}`;
+                    translationDiv.style.display = "block";
+                    return;
+                }
+
+                translatedTextEl.textContent = data.translated_text || "No translation returned";
+                translationDiv.style.display = "block";
+
+                if (data.audio_url) {
+                    audioEl.src = data.audio_url;
+                    audioEl.style.display = "block";
+                }
+            })
+            .catch(err => {
+                document.getElementById("translateLoader").style.display = "none";
+                translatedTextEl.textContent = `Error: ${err}`;
+                translationDiv.style.display = "block";
+            });
+        }
+
+        document.getElementById("insuranceForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            document.getElementById("insuranceResults").innerHTML =
+                "<div class='text-muted'>Fetching insurance quotes...</div>";
+
+            function escapeHtml(value) {
+                return String(value ?? "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
+            }
+
+            fetch("{{ url_for('insurance') }}", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                let html = "";
+                if (data.error) {
+                    html = `<div class="alert alert-danger">${escapeHtml(data.error)}</div>`;
+                } else {
+                    data.forEach(plan => {
+                        html += `
+                            <div style="padding: 15px; background: rgba(0,0,0,0.03); border-radius: 12px; margin-bottom: 10px;">
+                                <strong>${escapeHtml(plan.provider)}</strong><br>
+                                ${escapeHtml(plan.plan_name)}<br>
+                                <b style="color: #4f46e5;">₹${escapeHtml(plan.price)}</b>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById("insuranceResults").innerHTML = html;
+            })
+            .catch(() => {
+                document.getElementById("insuranceResults").innerHTML =
+                    "<div class='alert alert-danger'>Failed to fetch insurance quotes</div>";
+            });
+        });
+    </script>
+
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.8.11/dist/dotlottie-wc.js" type="module"></script>
+
+</body>
+</html>
