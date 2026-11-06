@@ -9,7 +9,7 @@ The frontend can run locally while connecting to a backend deployed on Render, o
 - Generate a day-by-day itinerary from departure city, destination, and dates.
 - Refine the latest plan with preset preferences or custom instructions.
 - Preserve the original plan when a refined plan is generated.
-- Display evaluation scores for relevance, accuracy, location/date coverage, completeness, budget realism, and structure.
+- Display coverage scores for relevance, trip alignment, locations, dates, completeness, budget detail, and daily structure.
 - Translate itinerary text into supported languages and optionally play generated audio.
 - Request travel insurance quotes through the backend.
 - Download the current plans and evaluation metrics as a formatted `.docx` file.
@@ -39,6 +39,7 @@ The frontend does not contain the AI agents or backend tools. `FASTAPI_BASE_URL`
 | Path | Purpose |
 | --- | --- |
 | `app.py` | Flask application, routes, backend calls, plan storage, scoring, and DOCX generation |
+| `plan_evaluation.py` | Shared deterministic coverage evaluator, also used by the root Flask app |
 | `templates/index.html` | Main user interface and browser-side interactions |
 | `static/` | CSS/JavaScript assets and generated translation audio files |
 | `requirements.txt` | Python dependencies |
@@ -132,6 +133,22 @@ The application fails fast at startup if either required environment variable is
 8. Use the clear action to remove the current browser session and start a new trip.
 
 The backend may be asleep on Render's free tier. The frontend allows a long request timeout and retries transient timeout or connection failures once.
+
+## Coverage metrics
+
+Newly generated or refined drafts use the same evaluator in both frontend deployments:
+
+- Relevance combines trip alignment, day coverage and requested topic coverage. It is not a semantic or factual judgment.
+- Trip alignment checks complete city names and both full travel dates. A matching year alone earns no date credit.
+- Dates support ISO, day/month/year and named-month forms, including ordinal days such as `6th November 2026`. Include the year explicitly.
+- Completeness checks numbered trip days and activities, meals, lodging, transport, practical information and a priced budget, rather than word count.
+- Budget detail checks currency-labelled amounts, priced categories, a trip total, costing basis and estimate disclosure. An identifiable single-currency subtotal mismatch reduces credit; other arithmetic is not certified.
+- Daily structure checks unique `Day N` sections and multiple distinct time slots with activities. Missing or duplicate days reduce credit.
+- Overall coverage equally weights relevance, alignment, completeness, budget detail and daily structure, so missing dates and budget details affect the result.
+
+These are coverage signals, not verification of market prices, route feasibility, source freshness, preference compliance or factual accuracy. Live data still depends on backend tools and their cited sources. Previously saved scores remain unchanged until a plan is regenerated or refined.
+
+Include `plan_evaluation.py` when deploying this directory independently. From the repository root, run `python -m pytest tests/test_plan_evaluation.py -q` to validate scoring and both frontend reports.
 
 ## Frontend routes
 

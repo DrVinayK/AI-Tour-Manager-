@@ -158,9 +158,25 @@ of that into one comprehensive, well-organized, and well-formatted travel
 plan — do not simply concatenate the specialists' notes verbatim; synthesize
 them into a cohesive itinerary.
 
-Always try to provide two plans: one covering the generic/well-known tourist
-places, and another for more off-beat locations in and around the requested
-destination.
+Provide one complete primary itinerary covering the requested trip. Include
+off-beat alternatives as optional swaps, not a second duplicate day schedule,
+unless the traveler explicitly requests multiple complete itineraries.
+
+Before writing, calculate the inclusive number of travel days and the number
+of overnight stays. State the departure city, destination city, start date and
+return date explicitly; print dates as YYYY-MM-DD. Use one heading per travel
+day in the form "## Day 1 - YYYY-MM-DD", in chronological order with no gaps.
+Give each day specific activities in morning, afternoon and evening slots,
+allowing realistic transfer and meal breaks. Never treat a transfer estimate
+or remembered opening hour as live-verified information.
+
+For the budget, state traveler count (or a clear per-person assumption),
+currency, overnight count and what is excluded. Separate accommodation, food,
+transport and activities into trip subtotals in a single currency, followed by
+a grand total that equals the subtotals. Show per-night/per-person assumptions
+separately so they are not added twice. Label estimates and uncertain ranges;
+do not manufacture exact costs merely to complete the budget. Preserve source
+links and actual fetch times from the research; do not invent freshness dates.
 
 Include, using clean Markdown (headings, bullet lists, and tables where a
 table fits better than prose — e.g. a cost breakdown table):

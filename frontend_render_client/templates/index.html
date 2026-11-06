@@ -431,7 +431,8 @@
 
         <!-- METRICS -->
         <div class="card-glass">
-            <h5>📊 Plan Quality Metrics</h5>
+            <h5>📊 Latest Draft Coverage</h5>
+            <p class="small text-muted">Automated coverage checks, not verified accuracy. Live prices, opening hours, source freshness and travel feasibility require confirmation.</p>
 
             {% if agent_status %}
             {% set agent_labels = {"weather_agent": "🌤️ Weather", "places_agent": "📍 Places", "budget_agent": "💰 Budget", "writer_agent": "✍️ Writer"} %}
@@ -473,7 +474,7 @@
 
             <!-- Overall Score Banner -->
             <div style="padding: 20px; background: linear-gradient(135deg, #4f46e5, #06b6d4, #ec4899); border-radius: 12px; color: white; margin-bottom: 20px; text-align: center;">
-                <strong style="font-size: 18px;">Overall Quality Score</strong>
+                <strong style="font-size: 18px;">Overall Coverage Score</strong>
                 <p style="font-size: 32px; margin: 10px 0 0 0;">{{ "%.2f"|format(overall_score) }} / 1.00</p>
             </div>
             
@@ -483,7 +484,7 @@
                     <div style="padding: 15px; background: rgba(79, 70, 229, 0.1); border-radius: 12px;">
                         <strong style="color: #4f46e5;">Relevance</strong>
                         <p style="font-size: 24px; margin: 8px 0; color: #4f46e5;">{{ "%.2f"|format(relevance) }}</p>
-                        <small style="color: #666;">Keywords matched to plan</small>
+                        <small style="color: #666;">Trip details and requested topics covered</small>
                         <div class="progress mt-2">
                             <div class="progress-bar" style="width: {{ relevance * 100 }}%; background: linear-gradient(90deg, #4f46e5, #06b6d4);"></div>
                         </div>
@@ -491,9 +492,9 @@
                 </div>
                 <div class="col-md-6">
                     <div style="padding: 15px; background: rgba(6, 182, 212, 0.1); border-radius: 12px;">
-                        <strong style="color: #06b6d4;">Accuracy</strong>
+                        <strong style="color: #06b6d4;">Trip Alignment</strong>
                         <p style="font-size: 24px; margin: 8px 0; color: #06b6d4;">{{ "%.2f"|format(accuracy) }}</p>
-                        <small style="color: #666;">Field completeness check</small>
+                        <small style="color: #666;">Full city names and travel dates present</small>
                         <div class="progress mt-2">
                             <div class="progress-bar" style="width: {{ accuracy * 100 }}%; background: linear-gradient(90deg, #06b6d4, #ec4899);"></div>
                         </div>
@@ -507,31 +508,31 @@
                 <div class="row g-2">
                     <div class="col-md-4">
                         <div style="padding: 12px; background: rgba(34, 197, 94, 0.08); border-radius: 8px; text-align: center;">
-                            <small style="color: #666;">Location Accuracy</small>
+                            <small style="color: #666;">Location Coverage</small>
                             <p style="font-size: 20px; margin: 5px 0; color: #22c55e;">{{ "%.2f"|format(location_accuracy) }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div style="padding: 12px; background: rgba(59, 130, 246, 0.08); border-radius: 8px; text-align: center;">
-                            <small style="color: #666;">Date Accuracy</small>
+                            <small style="color: #666;" title="Requires day, month and year for both travel dates">Date Coverage</small>
                             <p style="font-size: 20px; margin: 5px 0; color: #3b82f6;">{{ "%.2f"|format(date_accuracy) }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div style="padding: 12px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; text-align: center;">
-                            <small style="color: #666;">Completeness</small>
+                            <small style="color: #666;" title="Trip days and essential travel sections, not word count">Completeness</small>
                             <p style="font-size: 20px; margin: 5px 0; color: #a855f7;">{{ "%.2f"|format(completeness) }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div style="padding: 12px; background: rgba(251, 146, 60, 0.08); border-radius: 8px; text-align: center;">
-                            <small style="color: #666;">Budget Realism</small>
+                            <small style="color: #666;" title="Priced categories, total, costing basis and estimate disclosure; not verified market prices">Budget Detail</small>
                             <p style="font-size: 20px; margin: 5px 0; color: #fb923c;">{{ "%.2f"|format(budget_realism) }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div style="padding: 12px; background: rgba(236, 72, 153, 0.08); border-radius: 8px; text-align: center;">
-                            <small style="color: #666;">Structure Quality</small>
+                            <small style="color: #666;" title="Numbered trip days with activities and multiple time slots">Daily Structure</small>
                             <p style="font-size: 20px; margin: 5px 0; color: #ec4899;">{{ "%.2f"|format(structure_quality) }}</p>
                         </div>
                     </div>

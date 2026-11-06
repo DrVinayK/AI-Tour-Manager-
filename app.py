@@ -21,6 +21,7 @@ from uuid import uuid4
 import json as _json
 import logging
 import sys
+from frontend_render_client.plan_evaluation import compute_evaluation
 
 # -----------------------------
 # Structured logging (JSON-lines, matches the FastAPI backend's format so
@@ -310,121 +311,6 @@ def extract_keywords_from_query(query: str, max_keywords: int = 40):
     tokens = tokenize(query)
     tokens = sorted(set(tokens), key=lambda t: (-len(t), t))
     return tokens[:max_keywords]
-
-def compute_evaluation(user_query: str, answer_text: str, departure_city: str, destination_city: str,
-                       departure_date: datetime.date, return_date: datetime.date):
-    """
-    Heuristic, keyword-based evaluation of a generated itinerary.
-
-    IMPORTANT: this is NOT a real quality judgment. It only checks surface
-    signals (keyword overlap, whether the city/date strings appear, word
-    count, presence of budget/structure-related words). It does not verify
-    that the itinerary is factually correct, safe, or actually good — it
-    can't tell if the AI made up a restaurant or hallucinated a hotel.
-    Treat the scores as a rough content-coverage check, not a guarantee of
-    quality. For a real quality signal, have a separate model/service grade
-    the answer (e.g. an LLM-as-judge call to your FastAPI backend) instead
-    of relying on this string-matching heuristic.
-
-    Returns: (relevance, accuracy, location_accuracy, date_accuracy, completeness, budget_realism, structure_quality, overall_score)
-    """
-    q = normalize_text(user_query)
-    a = normalize_text(answer_text)
-    answer_word_count = len(a.split())
-
-    # RELEVANCE - fraction of distinct query keywords that show up in the answer
-    q_tokens = extract_keywords_from_query(q, max_keywords=80)
-    a_tokens = set(tokenize(a))
-    matched_tokens = [t for t in q_tokens if t in a_tokens]
-    relevance = float(len(matched_tokens) / len(q_tokens)) if q_tokens else 0.0
-
-    # LOCATION ACCURACY - fraction of supplied cities that appear in the answer
-    location_checks = 0
-    location_total = 0
-    if departure_city:
-        location_total += 1
-        dept_norm = normalize_text(departure_city)
-        if dept_norm and (dept_norm in a or any(word in a for word in dept_norm.split())):
-            location_checks += 1
-    if destination_city:
-        location_total += 1
-        dest_norm = normalize_text(destination_city)
-        if dest_norm and (dest_norm in a or any(word in a for word in dest_norm.split())):
-            location_checks += 1
-    location_accuracy = float(location_checks / location_total) if location_total else 0.0
-
-    # DATE ACCURACY - fraction of supplied dates that appear in some recognizable form
-    def date_mentioned(d):
-        variants = [
-            d.strftime("%Y-%m-%d"),
-            d.strftime("%d-%b-%Y"),
-            d.strftime("%B %d, %Y"),
-            d.strftime("%b %d"),
-            d.strftime("%d %B"),
-        ]
-        return any(v.lower() in a for v in variants)
-
-    date_checks = 0
-    date_total = 0
-    if departure_date:
-        date_total += 1
-        if date_mentioned(departure_date):
-            date_checks += 1
-    if return_date:
-        date_total += 1
-        if date_mentioned(return_date):
-            date_checks += 1
-    date_accuracy = float(date_checks / date_total) if date_total else 0.0
-
-    # COMPLETENESS - word count relative to a "full itinerary" target of ~600 words
-    completeness = float(min(1.0, answer_word_count / 600.0))
-
-    # BUDGET REALISM - presence of cost/price-related vocabulary
-    budget_keywords = {"price", "cost", "budget", "usd", "dollar", "per", "fee", "rate", "night", "hour", "expense", "rupees", "inr"}
-    budget_mentions = sum(1 for kw in budget_keywords if kw in a)
-    budget_realism = float(min(1.0, budget_mentions / len(budget_keywords)))
-
-    # STRUCTURE QUALITY - presence of day-by-day / itinerary organizing vocabulary
-    structure_keywords = {"day", "morning", "afternoon", "evening", "activity", "accommodation", "restaurant", "visit", "explore", "itinerary", "stay", "meal"}
-    structure_mentions = sum(1 for kw in structure_keywords if kw in a)
-    structure_quality = float(min(1.0, structure_mentions / len(structure_keywords)))
-
-    # ACCURACY - fraction of the specific fields (cities + dates) that are actually present
-    field_count = 0
-    field_found = 0
-    if departure_city:
-        field_count += 1
-        dept_norm = normalize_text(departure_city).split()
-        if any(part in a for part in dept_norm if len(part) > 2):
-            field_found += 1
-    if destination_city:
-        field_count += 1
-        dest_norm = normalize_text(destination_city).split()
-        if any(part in a for part in dest_norm if len(part) > 2):
-            field_found += 1
-    if departure_date:
-        field_count += 1
-        if date_mentioned(departure_date) or str(departure_date.year) in a:
-            field_found += 1
-    if return_date:
-        field_count += 1
-        if date_mentioned(return_date) or str(return_date.year) in a:
-            field_found += 1
-    accuracy = float(field_found / field_count) if field_count else 0.0
-
-    # OVERALL SCORE - weighted combination, no artificial floor
-    overall_score = (
-        relevance * 0.25 +
-        accuracy * 0.25 +
-        location_accuracy * 0.15 +
-        date_accuracy * 0.10 +
-        completeness * 0.15 +
-        structure_quality * 0.10
-    )
-    overall_score = float(min(1.0, overall_score))
-
-    return relevance, accuracy, location_accuracy, date_accuracy, completeness, budget_realism, structure_quality, overall_score
-
 
 _link_pattern = re.compile(r"\[([^\]]+)\]\((https?://[^\s\)]+)\)")
 _url_pattern = re.compile(r"(https?://[^\s<>)]+)")
@@ -957,10 +843,10 @@ def generate_word_doc(plans, trip_details, relevance, accuracy, location_accurac
         doc.add_page_break()
 
     # ---- Plan quality evaluation ----
-    doc.add_heading("Plan Quality Evaluation", level=1)
+    doc.add_heading("Latest Draft Coverage Evaluation", level=1)
 
     overall_p = doc.add_paragraph()
-    overall_label = overall_p.add_run("Overall Quality Score: ")
+    overall_label = overall_p.add_run("Overall Coverage Score: ")
     overall_label.bold = True
     overall_value = overall_p.add_run(f"{overall_score:.2f} / 1.00")
     overall_value.bold = True
@@ -969,10 +855,10 @@ def generate_word_doc(plans, trip_details, relevance, accuracy, location_accurac
 
     note = doc.add_paragraph()
     note_run = note.add_run(
-        "This is a heuristic, keyword-based coverage check (relevance, "
-        "location/date mentions, structure, and length), not a verified "
-        "judgment of factual accuracy — always double-check prices, hours, "
-        "and travel requirements before you go."
+        "Automated coverage checks for the latest draft: complete city names, "
+        "full travel dates, daily sections, essential trip details and priced budgets. "
+        "These scores do not verify factual accuracy, live prices, opening hours, "
+        "source freshness or travel feasibility. Confirm these before booking."
     )
     note_run.italic = True
     note_run.font.size = Pt(9)
@@ -980,13 +866,13 @@ def generate_word_doc(plans, trip_details, relevance, accuracy, location_accurac
 
     doc.add_paragraph("")
     _add_metrics_table(doc, [
-        ("Relevance — keywords matched to plan content", relevance),
-        ("Accuracy — location/date fields present", accuracy),
-        ("Location Accuracy", location_accuracy),
-        ("Date Accuracy", date_accuracy),
-        ("Completeness — length vs. a full itinerary", completeness),
-        ("Budget Realism — cost/price vocabulary present", budget_realism),
-        ("Structure Quality — day-by-day organization", structure_quality),
+        ("Relevance - trip and requested topic coverage", relevance),
+        ("Trip Alignment - cities and full dates", accuracy),
+        ("Location Coverage - complete city names", location_accuracy),
+        ("Date Coverage - day, month and year", date_accuracy),
+        ("Completeness - trip days and essential sections", completeness),
+        ("Budget Detail - priced categories, basis and totals", budget_realism),
+        ("Daily Structure - day coverage and time slots", structure_quality),
     ])
 
     buffer = BytesIO()
