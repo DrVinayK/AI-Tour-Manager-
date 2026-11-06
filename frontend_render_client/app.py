@@ -199,7 +199,7 @@ def _prepare_refinement_plan_context(plan_text):
     )
 
 
-def call_ai_backend(question, chat_history="", retries=1):
+def call_ai_backend(question, chat_history="", retries=1, existing_plan=""):
     """
     POST a question to the FastAPI backend's /query endpoint.
 
@@ -218,7 +218,7 @@ def call_ai_backend(question, chat_history="", retries=1):
         try:
             resp = requests.post(
                 f"{FASTAPI_BASE_URL}/query",
-                json={"question": question, "chat_history": chat_history},
+                json={"question": question, "chat_history": chat_history, "existing_plan": existing_plan},
                 timeout=QUERY_TIMEOUT_SECONDS
             )
             if resp.status_code == 200:
@@ -239,6 +239,11 @@ def call_ai_backend(question, chat_history="", retries=1):
                 continue
             else:
                 last_error = f"Backend returned an error (status {resp.status_code})."
+                if resp.status_code == 503:
+                    last_error = (
+                        "The itinerary service is temporarily unavailable. Your current plan is unchanged. "
+                        "Please try again shortly."
+                    )
                 # Don't retry on a real server-side error response, only on
                 # network-level failures below.
                 break
@@ -1135,7 +1140,7 @@ def index():
 
 @app.route("/refine", methods=["POST"])
 def refine():
-    refine_option = request.form.get("refine_option", "").strip()
+    refine_options = [value.strip() for value in request.form.getlist("refine_option") if value.strip()]
     custom_refine = request.form.get("custom_refine", "").strip()
 
     plan_id = session.get("plan_id")
@@ -1150,18 +1155,13 @@ def refine():
     plans = stored["plans"]
 
     # Refinement is optional – user submitted without input
-    if not refine_option and not custom_refine:
+    if not refine_options and not custom_refine:
         flash("No refinement applied. You can continue with the current plan.", "info")
         return redirect(url_for("index"))
     
-    # Refine the latest visible plan while keeping prompt size bounded.
     plan_text = plans[-1][1]
-    plan_context = _prepare_refinement_plan_context(plan_text)
 
-    instructions = []
-
-    if refine_option:
-        instructions.append(refine_option)
+    instructions = list(refine_options)
 
     if custom_refine:
         instructions.append(
@@ -1172,8 +1172,10 @@ def refine():
 
     refine_query = (
         f"You are refining an existing travel plan.\n\n"
-        f"EXISTING PLAN:\n{plan_context}\n\n"
+        f"ORIGINAL TRIP DETAILS:\n{json.dumps(trip_details)}\n\n"
         f"REFINEMENT INSTRUCTIONS:\n{combined_instructions}\n\n"
+        f"Apply the requested changes to the latest plan and preserve earlier preferences "
+        f"and trip details unless the user explicitly changes them.\n\n"
         f"BUDGET/CALCULATION FORMAT RULES:\n"
         f"- If any calculator/cost tool is used, provide plain numeric values only (example: 8000, not ₹8000).\n"
         f"- Keep currency symbols only in the final human-readable itinerary text.\n\n"
@@ -1182,7 +1184,9 @@ def refine():
     )
 
     call_start = time.time()
-    refined_answer, error_message, agent_meta = call_ai_backend(refine_query, chat_history="")
+    refined_answer, error_message, agent_meta = call_ai_backend(
+        refine_query, existing_plan=plan_text
+    )
     log.info("plan_refined" if error_message is None else "plan_refine_failed", extra={
         "duration_ms": round((time.time() - call_start) * 1000, 1),
         "agents_used": agent_meta.get("agents_used", []),

@@ -41,6 +41,7 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     question: str
     chat_history: str = ""
+    existing_plan: str = ""
 
 class ChatMessage(BaseModel):
     message: str
@@ -251,7 +252,25 @@ async def query_travel_agent(query: QueryRequest):
             "final_answer": None,
         }
         with timed_block(log, "graph_invoke") as t:
-            output = react_app.invoke(initial_state)
+            if query.existing_plan.strip():
+                initial_state["user_question"] = (
+                    f"Revise the following travel itinerary according to the traveler's instructions. "
+                    f"Return the complete revised itinerary, not a summary or a list of changes. "
+                    f"Preserve earlier preferences and unchanged trip details. "
+                    f"Update affected schedules and budget totals consistently. "
+                    f"Do not claim to have checked live prices or forecasts for this revision; "
+                    f"label new prices as estimates.\n\n"
+                    f"LATEST ITINERARY:\n{query.existing_plan}\n\n"
+                    f"TRAVELER'S INSTRUCTIONS:\n{query.question}"
+                )
+                output = graph.writer_node(initial_state)
+                if any(entry.get("status") != "ok" for entry in output.get("agent_status", [])):
+                    return JSONResponse(status_code=503, content={
+                        "error": "The itinerary service is temporarily unavailable. "
+                                 "Your current plan is unchanged. Please try the refinement again shortly."
+                    })
+            else:
+                output = react_app.invoke(initial_state)
         log.info("graph_completed", extra={
             "duration_ms": t.duration_ms,
             "agent_status": output.get("agent_status", []) if isinstance(output, dict) else [],
@@ -286,6 +305,8 @@ async def query_travel_agent(query: QueryRequest):
         # Token counting (names match Streamlit)
         # -----------------------------
         prompt_text = "\n".join([m["content"] for m in messages])
+        if query.existing_plan:
+            prompt_text += "\n" + query.existing_plan
         tokens_in = count_tokens(prompt_text)
         tokens_out = count_tokens(final_output)
         total_tokens = tokens_in + tokens_out

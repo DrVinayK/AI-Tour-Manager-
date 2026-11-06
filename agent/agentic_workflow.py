@@ -56,7 +56,7 @@ from langchain_core.messages import (
 )
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from prompt_library.prompt import (
     BUDGET_AGENT_PROMPT,
@@ -119,12 +119,13 @@ def _int_env(name: str, default: int) -> int:
 WRITER_MAX_TOKENS = _int_env("WRITER_MAX_TOKENS", 6000)
 SPECIALIST_MAX_TOKENS = _int_env("SPECIALIST_MAX_TOKENS", 1500)
 
-# Retry policy for direct LLM calls: 3 attempts total, short exponential
-# backoff. Kept deliberately small — an LLM call is already the slow part
-# of a request, so we don't want retries to turn a 5s failure into a 30s one.
+# Retry policy for direct LLM calls: 3 attempts total for transient failures.
+# HTTP 429 responses are not retried because provider quota windows can last
+# minutes or hours, and repeating the call cannot free quota.
 _retry_llm_call = retry(
     stop=stop_after_attempt(AGENT_LLM_RETRY_ATTEMPTS),
     wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
+    retry=retry_if_exception(lambda exc: getattr(exc, "status_code", None) != 429),
     reraise=True,
 )
 

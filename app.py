@@ -182,7 +182,7 @@ if RESET_PLANS_ON_START:
 QUERY_TIMEOUT_SECONDS = int(os.getenv("QUERY_TIMEOUT_SECONDS", "240"))
 
 
-def call_ai_backend(question, chat_history="", retries=1):
+def call_ai_backend(question, chat_history="", retries=1, existing_plan=""):
     """
     POST a question to the FastAPI backend's /query endpoint.
 
@@ -201,7 +201,7 @@ def call_ai_backend(question, chat_history="", retries=1):
         try:
             resp = requests.post(
                 f"{FASTAPI_BASE_URL}/query",
-                json={"question": question, "chat_history": chat_history},
+                json={"question": question, "chat_history": chat_history, "existing_plan": existing_plan},
                 timeout=QUERY_TIMEOUT_SECONDS
             )
             if resp.status_code == 200:
@@ -222,6 +222,11 @@ def call_ai_backend(question, chat_history="", retries=1):
                 continue
             else:
                 last_error = f"Backend returned an error (status {resp.status_code})."
+                if resp.status_code == 503:
+                    last_error = (
+                        "The itinerary service is temporarily unavailable. Your current plan is unchanged. "
+                        "Please try again shortly."
+                    )
                 # Don't retry on a real server-side error response, only on
                 # network-level failures below.
                 break
@@ -1118,7 +1123,7 @@ def index():
 
 @app.route("/refine", methods=["POST"])
 def refine():
-    refine_option = request.form.get("refine_option", "").strip()
+    refine_options = [value.strip() for value in request.form.getlist("refine_option") if value.strip()]
     custom_refine = request.form.get("custom_refine", "").strip()
 
     plan_id = session.get("plan_id")
@@ -1133,17 +1138,13 @@ def refine():
     plans = stored["plans"]
 
     # Refinement is optional – user submitted without input
-    if not refine_option and not custom_refine:
+    if not refine_options and not custom_refine:
         flash("No refinement applied. You can continue with the current plan.", "info")
         return redirect(url_for("index"))
     
-    # Take the first plan text (Original Plan)
-    plan_text = plans[0][1]
+    plan_text = plans[-1][1]
 
-    instructions = []
-
-    if refine_option:
-        instructions.append(refine_option)
+    instructions = list(refine_options)
 
     if custom_refine:
         instructions.append(
@@ -1154,14 +1155,18 @@ def refine():
 
     refine_query = (
         f"You are refining an existing travel plan.\n\n"
-        f"EXISTING PLAN:\n{plan_text}\n\n"
+        f"ORIGINAL TRIP DETAILS:\n{json.dumps(trip_details)}\n\n"
         f"REFINEMENT INSTRUCTIONS:\n{combined_instructions}\n\n"
+        f"Apply the requested changes to the latest plan and preserve earlier preferences "
+        f"and trip details unless the user explicitly changes them.\n\n"
         f"Provide a complete, newly refined itinerary. "
         f"Do not summarize. Do not reference the old plan explicitly."
     )
 
     call_start = time.time()
-    refined_answer, error_message, agent_meta = call_ai_backend(refine_query, chat_history="")
+    refined_answer, error_message, agent_meta = call_ai_backend(
+        refine_query, existing_plan=plan_text
+    )
     log.info("plan_refined" if error_message is None else "plan_refine_failed", extra={
         "duration_ms": round((time.time() - call_start) * 1000, 1),
         "agents_used": agent_meta.get("agents_used", []),
